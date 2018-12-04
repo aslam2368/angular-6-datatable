@@ -3,11 +3,17 @@ import {
     IterableDiffer, Output
 } from "@angular/core";
 import * as _ from "lodash";
-import {ReplaySubject} from "rxjs";
+import { ReplaySubject } from "rxjs";
+import { filter } from "rxjs/operators";
 
 export interface SortEvent {
-    sortBy: string|string[];
+    sortBy: string | string[];
     sortOrder: string
+}
+
+export interface FilterEvent {
+    filterBy: string;
+    filterValue: string
 }
 
 export interface PageEvent {
@@ -28,43 +34,75 @@ export class DataTable implements OnChanges, DoCheck {
 
     private diff: IterableDiffer<any>;
     @Input("mfData") public inputData: any[] = [];
-
-    @Input("mfSortBy") public sortBy: string|string[] = "";
+    @Input("mfDataLength") public dataLength: number = 0;
+    @Input("mfSortBy") public sortBy: string | string[] = "";
     @Input("mfSortOrder") public sortOrder = "asc";
-    @Output("mfSortByChange") public sortByChange = new EventEmitter<string|string[]>();
+    @Output("mfSortByChange") public sortByChange = new EventEmitter<string | string[]>();
     @Output("mfSortOrderChange") public sortOrderChange = new EventEmitter<string>();
-
-    @Input("mfRowsOnPage") public rowsOnPage = 1000;
+    @Output("mfOnFilterChange") public onFilterChange = new EventEmitter<FilterEvent[]>();
+    @Input("mfRowsOnPage") public rowsOnPage = 100;
     @Input("mfActivePage") public activePage = 1;
+    @Output("mfOnSortChange") public onSortChange = new ReplaySubject<SortEvent>(1);
+    @Output("mfOnPageChange") public onPageChange = new EventEmitter<PageEvent>();
 
     private mustRecalculateData = false;
-
     public data: any[];
-
-    public onSortChange = new ReplaySubject<SortEvent>(1);
-    public onPageChange = new EventEmitter<PageEvent>();
+    public filters: Array<FilterEvent> = [];
 
     public constructor(private differs: IterableDiffers) {
         this.diff = differs.find([]).create(null);
     }
 
     public getSort(): SortEvent {
-        return {sortBy: this.sortBy, sortOrder: this.sortOrder};
+        return { sortBy: this.sortBy, sortOrder: this.sortOrder };
     }
 
-    public setSort(sortBy: string|string[], sortOrder: string): void {
+    public setSort(sortBy: string | string[], sortOrder: string): void {
         if (this.sortBy !== sortBy || this.sortOrder !== sortOrder) {
             this.sortBy = sortBy;
-            this.sortOrder = _.includes(["asc","desc"], sortOrder) ? sortOrder : "asc";
+            this.sortOrder = _.includes(["asc", "desc"], sortOrder) ? sortOrder : "asc";
             this.mustRecalculateData = true;
-            this.onSortChange.next({sortBy: sortBy, sortOrder: sortOrder});
+            this.onSortChange.next({ sortBy: sortBy, sortOrder: sortOrder });
             this.sortByChange.emit(this.sortBy);
             this.sortOrderChange.emit(this.sortOrder);
         }
     }
 
+    public getFilter(): Array<FilterEvent> {
+        return this.filters;
+    }
+
+    public setFilter(filterBy: string, filterValue: string): void {
+        let i = -1;
+        this.filters.forEach((element, index) => {
+            if (element.filterBy == filterBy) {
+                i = index;
+                return false;
+            }
+        });
+        if (i !== -1) {
+            if (this.filters[i].filterValue !== filterValue) {
+                this.filters[i].filterValue = filterValue;
+                this.onFilterChange.emit(this.getFilter());
+                this.fillData();
+            }
+        } else {
+            if (filterBy && filterBy.trim() !== "" && filterValue && filterValue.trim() !== "") {
+                this.filters.push({ filterBy: filterBy, filterValue: filterValue });
+                this.onFilterChange.emit(this.getFilter());
+                this.fillData();
+            }
+        }
+    }
+
     public getPage(): PageEvent {
-        return {activePage: this.activePage, rowsOnPage: this.rowsOnPage, dataLength: this.inputData.length};
+        let length = 0
+        if (this.dataLength) {
+            length = this.dataLength;
+        } else {
+            length = this.inputData ? this.inputData.length : 0
+        }
+        return { activePage: this.activePage, rowsOnPage: this.rowsOnPage, dataLength: length };
     }
 
     public setPage(activePage: number, rowsOnPage: number): void {
@@ -72,10 +110,16 @@ export class DataTable implements OnChanges, DoCheck {
             this.activePage = this.activePage !== activePage ? activePage : this.calculateNewActivePage(this.rowsOnPage, rowsOnPage);
             this.rowsOnPage = rowsOnPage;
             this.mustRecalculateData = true;
+            let length = 0
+            if (this.dataLength) {
+                length = this.dataLength;
+            } else {
+                length = this.inputData ? this.inputData.length : 0
+            }
             this.onPageChange.emit({
                 activePage: this.activePage,
                 rowsOnPage: this.rowsOnPage,
-                dataLength: this.inputData ? this.inputData.length : 0
+                dataLength: length
             });
         }
     }
@@ -87,18 +131,24 @@ export class DataTable implements OnChanges, DoCheck {
     }
 
     private recalculatePage() {
-        let lastPage = Math.ceil(this.inputData.length / this.rowsOnPage);
+        let length = 0
+        if (this.dataLength) {
+            length = this.dataLength;
+        } else {
+            length = this.inputData ? this.inputData.length : 0
+        }
+        let lastPage = Math.ceil(length / this.rowsOnPage);
         this.activePage = lastPage < this.activePage ? lastPage : this.activePage;
         this.activePage = this.activePage || 1;
 
         this.onPageChange.emit({
             activePage: this.activePage,
             rowsOnPage: this.rowsOnPage,
-            dataLength: this.inputData.length
+            dataLength: length
         });
     }
 
-    public ngOnChanges(changes: {[key: string]: SimpleChange}): any {
+    public ngOnChanges(changes: { [key: string]: SimpleChange }): any {
         if (changes["rowsOnPage"]) {
             this.rowsOnPage = changes["rowsOnPage"].previousValue;
             this.setPage(this.activePage, changes["rowsOnPage"].currentValue);
@@ -110,7 +160,7 @@ export class DataTable implements OnChanges, DoCheck {
                 this.sortOrder = "asc";
             }
             if (this.sortBy) {
-                this.onSortChange.next({sortBy: this.sortBy, sortOrder: this.sortOrder});
+                this.onSortChange.next({ sortBy: this.sortBy, sortOrder: this.sortOrder });
             }
             this.mustRecalculateData = true;
         }
@@ -145,6 +195,13 @@ export class DataTable implements OnChanges, DoCheck {
         } else {
             data = _.orderBy(data, sortBy, [this.sortOrder]);
         }
+        if (this.filters.length) {
+            this.filters.forEach((element) => {
+                data = data.filter((value) => {
+                    return value[element.filterBy].toLowerCase().includes(element.filterValue.toLocaleLowerCase());
+                });
+            })
+        }
         data = _.slice(data, offset, offset + this.rowsOnPage);
         this.data = data;
     }
@@ -153,7 +210,7 @@ export class DataTable implements OnChanges, DoCheck {
         return (row: any): any => {
             var value = row;
             for (let sortByProperty of sortBy.split('.')) {
-                if(value) {
+                if (value) {
                     value = value[sortByProperty];
                 }
             }
