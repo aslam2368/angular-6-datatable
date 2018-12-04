@@ -1,4 +1,4 @@
-# Table component with sorting and pagination for Angular
+# Table component with sorting and pagination and filtering for Angular
 It is a forked version of [@abdulk1/angular-6-datatable](https://github.com/abdulk1/angular-6-datatable) updated to Angular 6.
 
 ## 
@@ -6,7 +6,7 @@ It is a forked version of [@abdulk1/angular-6-datatable](https://github.com/abdu
 ## Installation
 
 ```
-npm i angular-6-datatable --save
+npm i angular-6-datatable-cc --save
 ```
 
 ## Usage example
@@ -15,7 +15,7 @@ AppModule.ts
 ```typescript
 import {NgModule} from "@angular/core";
 ...
-import {DataTableModule} from "angular-6-datatable";
+import {DataTableModule} from "angular-6-datatable-cc";
 
 @NgModule({
     imports: [
@@ -49,6 +49,36 @@ AppComponent.html
     </tr>
     </thead>
     <tbody>
+    <tr>
+      <th scope="col">
+        <mfDefaultFilter by="name" [value]="Name">
+          <div class="form-group form-group-sm no-margin">
+            <input [(ngModel)]="Name" type="text" name="Name" type="text" class="form-control">
+          </div>
+        </mfDefaultFilter>
+      </th>
+      <th scope="col">
+        <mfDefaultFilter by="email" [value]="Email">
+          <div class="form-group form-group-sm no-margin">
+            <input [(ngModel)]="Email" type="text" name="Email" type="text" class="form-control">
+          </div>
+        </mfDefaultFilter>
+      </th>
+      <th scope="col">
+        <mfDefaultFilter by="age" [value]="Age">
+          <div class="form-group form-group-sm no-margin">
+            <input [(ngModel)]="Age" type="text" name="Age" type="text" class="form-control">
+          </div>
+        </mfDefaultFilter>
+      </th>
+      <th scope="col">
+        <mfDefaultFilter by="city" [value]="City">
+          <div class="form-group form-group-sm no-margin">
+            <input [(ngModel)]="City" type="text" name="City" type="text" class="form-control">
+          </div>
+        </mfDefaultFilter>
+      </th>
+    </tr>
     <tr *ngFor="let item of mf.data">
         <td>{{item.name}}</td>
         <td>{{item.email}}</td>
